@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>PDF Chatbot</title>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+	<link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+	<nav>
+		
+	</nav>
+
+	<video autoplay loop muted id="video-background" src="{{BASE_URL}}static/asset_data/vid5.mp4"></video>
+
+	<div class="center_container">
+		<div class="d-flex align-items-center flex-column main_heading">
+			<p>Welcome! To this PDF chatbot, which are built by using their extensive PDF file data based on fire safety and utilities. It's designed to provide information and answer your questions on these topics. Feel free to ask anything. Go ahead and give it a try! </p>
+			<h5>--Click the link below now--</h5>
+			<!-- File Upload Form -->
+			<div class="upload-container">
+				<form id="uploadForm">
+					<input type="file" id="fileInput" accept="application/pdf" required>
+					<button type="submit" class="btn btn-primary">Upload PDF</button>
+				</form>
+			</div>
+
+			<div class="bottom-container" id="bottomContainer" data-bs-toggle="offcanvas" data-bs-target="#offcanvasRight" aria-controls="offcanvasRight" style="display: none;">
+				<div class="d-flex align-items-center p-2 gap-3 rounded chat_btn">
+					<i class="fa-solid fa-robot"></i>
+					<button class="btn btn-outline-light rounded-0 chat_button">Let's Chat</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="offcanvas offcanvas-end useit" tabindex="-1" id="offcanvasRight" aria-labelledby="offcanvasRightLabel">
+		<div class="offcanvas-header">
+			<span class="bot_head">Welcome to <strong>PDF Chatbot</strong></span>
+			<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+		</div>
+		<div class="offcanvas-body chatArea"></div>
+		<div class="form">
+			<form id="chatForm">
+				<input type="text" class="user-input" id="user-input" name="query" placeholder="Ask me anything..." >
+				<button type="submit" class="user-button" id="send-button"><i class="fa-solid fa-paper-plane" style="color: #ffffff;"></i></button>
+			</form>
+		</div>
+	</div>
+
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script>
+        const BASE_URL = "http://localhost:5002";
+        const uploadForm = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('fileInput');
+        const bottomContainer = document.getElementById('bottomContainer');
+        const sendButton = document.getElementById('send-button');
+        const inputField = document.getElementById('user-input');
+        const chatArea = document.querySelector('.chatArea');
+
+        let isBotResponding = false;
+
+        function showLoader() {
+            const loader = document.createElement('div');
+            loader.classList.add('loader', 'd-flex', 'gap-3', 'p-2', 'rounded', 'my-3');
+            loader.innerHTML = `
+                <div class="loader-animation" style="width: 250px;">
+                    <div class="chatArea_icons">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+            `;
+            chatArea.appendChild(loader);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function hideLoader() {
+            const loader = document.querySelector('.loader');
+            if (loader) {
+                chatArea.removeChild(loader);
+            }
+        }
+
+        uploadForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const file = fileInput.files[0];
+            if (file) {
+                const formData = new FormData();
+                formData.append('pdf_file', file);  // Ensure this matches the FastAPI input name
+
+                showLoader();
+
+                fetch(`${BASE_URL}/upload-pdf`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    hideLoader();
+                    if (data.message) {
+                        alert('File uploaded successfully');
+                        bottomContainer.style.display = 'block';
+                    } else {
+                        alert('File upload failed: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    hideLoader();
+                    console.error('Error:', error);
+                    alert('An error occurred while uploading the file');
+                });
+            } else {
+                alert('Please select a file to upload');
+            }
+        });
+
+        function addMessageToChat(message, isUserMessage) {
+            const newMessage = document.createElement('div');
+            newMessage.classList.add('d-flex', 'gap-3', 'p-2', 'rounded', 'my-3');
+            if (isUserMessage && !isBotResponding) {
+                newMessage.classList.add('user-message', 'bg-light');
+                newMessage.innerHTML = `
+                    <div class="style="width: 300px;">${message}</div>   
+                    <div class="chatArea_icons">
+                        <i class="fa-solid fa-circle-user"></i>
+                    </div>
+                `;
+                isBotResponding = true;
+                inputField.disabled = true;
+                chatArea.appendChild(newMessage);
+                chatArea.scrollTop = chatArea.scrollHeight; 
+                addLoader();
+            } else if (!isUserMessage) {
+                newMessage.classList.add('bg-success', 'text-white', 'bot-message');
+                newMessage.innerHTML = `
+                    <div class="chatArea_icons">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div style="width: 250px;">${message}</div>
+                `;
+                isBotResponding = false;
+                inputField.disabled = false;
+                inputField.focus();
+                removeLoader();
+                chatArea.appendChild(newMessage);
+                chatArea.scrollTop = chatArea.scrollHeight; 
+            }
+        }
+
+        function addLoader() {
+            const loader = document.createElement('div');
+            loader.classList.add('loader', 'd-flex', 'gap-3', 'p-2', 'rounded', 'my-3');
+            loader.innerHTML = `
+                <div class="loader-animation" style="width: 250px;">
+                    <div class="chatArea_icons">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                    <div class="dot"></div>
+                </div>
+            `;
+            chatArea.appendChild(loader);
+        }
+        
+        function removeLoader() {
+            const loader = document.querySelector('.loader');
+            if (loader) {
+                chatArea.removeChild(loader);
+            }
+        }
+
+        const style = document.createElement('style');
+        style.innerHTML = `
+            .loader-animation {
+                display: flex;
+                align-items: center;
+                justify-content: flex-start;
+            }
+            .dot {
+                width: 8px;
+                height: 8px;
+                margin: 0 2px;
+                background-color: black;
+                border-radius: 50%;
+                animation: bounce 1.2s infinite ease-in-out;
+            }
+            .dot:nth-child(1) {
+                animation-delay: -0.32s;
+            }
+            .dot:nth-child(2) {
+                animation-delay: -0.16s;
+            }
+            @keyframes bounce {
+                0%, 80%, 100% {
+                    transform: scale(0);
+                }
+                40% {
+                    transform: scale(1);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        document.getElementById('chatForm').addEventListener('submit', (event) => {
+            event.preventDefault();
+            const userInput = inputField.value;
+            if (userInput.trim() !== '') {
+                addMessageToChat(userInput, true);
+                inputField.value = '';
+                sendMessageToServer(userInput);
+            }
+        });
+
+        function sendMessageToServer(message) {
+            fetch(`${BASE_URL}/chatbot`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ message: message })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && Object.keys(data).length !== 0) {
+                    addMessageToChat(data.response, false);
+                } else {
+                    console.error('Error: Empty response or invalid JSON format');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+    </script>
+
+</body>
+</html>

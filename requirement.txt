@@ -1,0 +1,17 @@
+langchain
+openai
+python-dotenv
+langchain
+langchain-community
+pinecone-client
+pandas
+spacy
+langchain_openai
+langchain_pinecone
+nltk
+fastapi
+uvicorn
+bs4
+pypdf
+PyPDF2
+python-multipart
