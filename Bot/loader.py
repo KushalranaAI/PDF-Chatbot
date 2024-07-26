@@ -15,51 +15,50 @@ CACHE_FILE = 'pdf_chunks_cache.pkl'
 TIMESTAMP_FILE = 'pdf_timestamps.pkl'
 
 
-def load_pdf(data_directory):
+def load_pdf(data_path):
     """
-    Load PDF files from the specified directory using DirectoryLoader.
+    Load PDF files from the specified path, which can be either a directory or a single file.
 
     Args:
-        data_directory (str): Path to the directory containing PDF files.
+        data_path (str): Path to the directory containing PDF files or a single PDF file.
 
     Returns:
         list: List of loaded documents.
     """
     try:
-        logging.info("Loading PDFs from directory: %s", data_directory)
-        loader = PyPDFLoader(data_directory)  # type: ignore
-        pages = loader.load_and_split()
-        logging.info("Loaded %d pages", len(pages))
-        return pages
+        if os.path.isdir(data_path):
+            logging.info("Loading PDFs from directory: %s", data_path)
+            loader = DirectoryLoader(data_path, loader_cls=PyPDFLoader)
+            documents = loader.load()
+        elif os.path.isfile(data_path) and data_path.endswith('.pdf'):
+            logging.info("Loading PDF from file: %s", data_path)
+            loader = PyPDFLoader(data_path)
+            documents = loader.load()
+        else:
+            raise ValueError(f"Expected directory or PDF file, got: {data_path}")
+
+        logging.info("Loaded %d documents", len(documents))
+        return documents
     except Exception as e:
         logging.error("Failed to load PDFs: %s", e)
         return []
-    
 
 
-  
-def get_pdf_text(pages):
+def get_pdf_text(documents):
     """
     Extract text from PDF documents.
 
     Args:
-        docs (list): List of loaded PDF documents.
+        documents (list): List of loaded PDF documents.
 
     Returns:
         str: Concatenated text extracted from all PDF documents.
     """
     text = ""
-    print(pages)
-    for pdf in pages:
-        print("KKKK")
-        # print(pdf)
-        # pdf_reader = PdfReader(pdf)
-        # for page in pdf_reader.pages:
-        #     text += page.extract_text() or ""
-        text += pdf.page_content
+    for document in documents:
+        # Assuming each document has a content attribute with the extracted text
+        text += f"page_content={document.page_content}\n"
     return text
-
-
 
 
 def text_split(extracted_data, chunk_size=500, chunk_overlap=20):
@@ -67,7 +66,7 @@ def text_split(extracted_data, chunk_size=500, chunk_overlap=20):
     Split extracted text data into chunks using RecursiveCharacterTextSplitter.
 
     Args:
-        extracted_data (list): List of extracted documents.
+        extracted_data (str): Extracted text data.
         chunk_size (int): Size of each text chunk.
         chunk_overlap (int): Overlap between consecutive text chunks.
 
@@ -77,14 +76,12 @@ def text_split(extracted_data, chunk_size=500, chunk_overlap=20):
     try:
         logging.info("Splitting text into chunks")
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-        text_chunks = text_splitter.split_documents(extracted_data)
+        text_chunks = text_splitter.split_text(extracted_data)
         logging.info("Created %d text chunks", len(text_chunks))
         return text_chunks
     except Exception as e:
         logging.error("Failed to split text: %s", e)
         return []
-
-
 
 
 def save_chunks_to_cache(chunks, cache_file=CACHE_FILE):
@@ -101,9 +98,6 @@ def save_chunks_to_cache(chunks, cache_file=CACHE_FILE):
         logging.info("Saved text chunks to cache file: %s", cache_file)
     except Exception as e:
         logging.error("Failed to save chunks to cache: %s", e)
-
-
-
 
 
 def load_chunks_from_cache(cache_file=CACHE_FILE):
@@ -129,9 +123,6 @@ def load_chunks_from_cache(cache_file=CACHE_FILE):
     return None
 
 
-
-
-
 def main(data_directory):
     """
     Main function to load PDFs, split text into chunks, and cache the chunks.
@@ -144,13 +135,10 @@ def main(data_directory):
     """
     logging.info("New or modified PDF files detected")
     extracted_data = load_pdf(data_directory)
-    print(extracted_data[0])
-    # return extracted_data
     if extracted_data:
-        print("LLLLL")
         extracted_text = get_pdf_text(extracted_data)
-        print(f"extracted text: {extracted_text}")
         text_chunks = text_split(extracted_text)
+        save_chunks_to_cache(text_chunks)
     else:
         text_chunks = load_chunks_from_cache()
 
@@ -161,3 +149,4 @@ def main(data_directory):
     else:
         logging.info("No text chunks available")
         return []
+

@@ -43,6 +43,7 @@ async def upload_pdf(pdf_file: UploadFile = File(...)):
     """Uploads a PDF file and processes it."""
     try:
         # Save the uploaded PDF to a temporary directory
+        
         upload_directory = os.path.join("uploads", f"{pdf_file.filename}")  # Modify as needed
         with open(upload_directory, "wb") as buffer:
             contents = await pdf_file.read()

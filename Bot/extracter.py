@@ -14,9 +14,22 @@ DOCS_HASH_FILENAME = "docs_hash.txt"
 
 # --- Hash Function to Track Changes ---
 def calculate_docs_hash(docs):
-    """Calculates a hash of the document contents to check for changes."""
-    all_text = "".join(t.page_content for t in docs)
+    """
+    Calculates a hash of the document contents to check for changes.
+
+    Args:
+        docs (list): List of document texts.
+
+    Returns:
+        str: MD5 hash of the concatenated document contents.
+    """
+    all_text = "".join(docs)
     return hashlib.md5(all_text.encode()).hexdigest()
+
+class Document:
+    def __init__(self, text, metadata=None):
+        self.page_content = text
+        self.metadata = metadata or {}
 
 
 # --- Pinecone Setup ---
@@ -32,22 +45,31 @@ index = pc.Index(INDEX_NAME)
 
 def handle_uploaded_pdf(pdf_directory):
     """Processes uploaded PDF and updates vector store if necessary."""
-    docs = main(pdf_directory)  # Call main with the directory path
-
+    docs_str = main(pdf_directory)  # Call main with the directory path
+    # print(docs)
     # Check if documents have changed
-    current_hash = calculate_docs_hash(docs)
+    current_hash = calculate_docs_hash(docs_str)
     try:
         with open(DOCS_HASH_FILENAME, "r") as f:
             previous_hash = f.read()
     except FileNotFoundError:
         previous_hash = ""  # No previous hash
-    print("FFFFFF")
+ 
     # Update index if documents are new or have changed
     if current_hash != previous_hash:
         print("Documents have changed. Updating the index...")
-        print("RRRRRR")
+      
         # Call the provided function to get the document search object
-        get_docsearch(docs)
+        # Given docs is a list with a single string containing multiple documents
+        single_string = docs_str[0]
+
+        # Split the single string into multiple documents based on newline
+        texts = single_string.split('\n')  # Use the appropriate delimiter
+
+        # Create Document objects for each piece of text
+        documents = [Document(text.strip()) for text in texts if text.strip()]
+
+        get_docsearch(documents)
 
         # Save the new hash
         with open(DOCS_HASH_FILENAME, "w") as f:
@@ -59,7 +81,7 @@ def handle_uploaded_pdf(pdf_directory):
         get_docsearch()
 
         
-def get_docsearch(docs=None):
+def get_docsearch(documents=None):
     """
     Creates or loads the document search object.
 
@@ -69,20 +91,21 @@ def get_docsearch(docs=None):
     Returns:
         PineconeVectorStore: The document search object.
     """
-    print(PINECONE_API_KEY)
+ 
     embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)  # type: ignore
     pc = PineconeClient(api_key=PINECONE_API_KEY)
 
     # Check if index exists
     if INDEX_NAME not in pc.list_indexes().names():
+      
         pc.create_index(INDEX_NAME, dimension=1536)  # type: ignore
 
     index = pc.Index(INDEX_NAME)
 
-    if docs:
+    if documents:
         # Create document search object from documents (for initial population)
         docsearch = PineconeVectorStore.from_documents(
-            docs, embeddings, index_name=INDEX_NAME
+            documents, embeddings, index_name=INDEX_NAME
         )
     else:
         # Load existing document search object

@@ -174,7 +174,7 @@ def bot(user_input):
         return content
             # continue
     else:
-        print("MMMMMM")
+       
         try:
             # Validate and initialize memory configuration
             config = MemoryConfig()
@@ -184,7 +184,7 @@ def bot(user_input):
             return "There was an error with the configuration."
         print(user_input)
         docserach = get_docsearch()
-        print(OPENAI_API_KEY)
+       
         # Question Answering with ConversationalRetrievalChain
         qa = ConversationalRetrievalChain.from_llm(
             llm=ChatOpenAI(model='gpt-4o', openai_api_key=OPENAI_API_KEY, temperature=0.4), # type: ignore
